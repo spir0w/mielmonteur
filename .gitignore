@@ -1,0 +1,12 @@
+# Bouwen (scripts/build-*.sh)
+/build/
+/dist/
+node_modules/
+
+# Spelbestanden horen nooit in de repository: het spel is van de makers
+*.iso
+*.ISO
+*.bin
+*.cue
+*.zip
+/spel/

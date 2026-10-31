@@ -1,0 +1,152 @@
+name: Bouwen
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Scripts controleren
+        run: for f in scripts/*.sh; do bash -n "$f"; done
+      - name: Importeren in de browser (ISO, ZIP, map)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xorriso zip
+          node --test tests/importeren.test.mjs
+      - name: Starter (PowerShell)
+        shell: pwsh
+        run: ./tests/start-miel.tests.ps1
+      - name: Webpagina in Chromium
+        run: |
+          npm install --no-save --prefix "$RUNNER_TEMP/pw" playwright@1.63.0
+          export NODE_PATH="$RUNNER_TEMP/pw/node_modules"
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+          node --test tests/webpagina.test.mjs
+
+  windows:
+    name: Windows-versie
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Gereedschap installeren
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mingw-w64 pkg-config zip
+
+      - name: Bibliotheken uit de cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/mingw-deps
+            build/mingw-deps-src
+          key: mingw-deps-${{ hashFiles('scripts/build-mingw-deps.sh') }}
+
+      - name: Bouwen
+        run: scripts/build-windows.sh dist/MielMonteur
+
+      - name: Inpakken
+        run: cd dist && zip -q -r -9 MielMonteur-Windows.zip MielMonteur
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MielMonteur-Windows
+          path: dist/MielMonteur-Windows.zip
+          if-no-files-found: error
+
+  windows-test:
+    name: Windows-versie testen op Windows
+    needs: windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: MielMonteur-Windows
+      - name: Uitpakken
+        shell: pwsh
+        run: Expand-Archive MielMonteur-Windows.zip -DestinationPath test-pakket
+      - name: Herkent scummvm.exe Miel Monteur? (Windows PowerShell 5.1)
+        shell: powershell
+        run: .\tests\windows-pakket.tests.ps1 -Pakket test-pakket\MielMonteur
+
+  web:
+    name: Browserversie
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Emscripten uit de cache
+        uses: actions/cache@v4
+        with:
+          path: build/emsdk-4.0.10
+          key: emsdk-4.0.10-v1
+
+      - name: Bouwen
+        run: scripts/build-web.sh dist/web
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MielMonteur-Web
+          path: dist/web
+          if-no-files-found: error
+
+  # Een versie uitbrengen: maak een tag die met v begint (bijvoorbeeld v1.0).
+  release:
+    name: Uitgave
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, windows-test, web]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Webversie inpakken
+        run: cd artifacts/MielMonteur-Web && zip -q -r -9 ../MielMonteur-Web.zip .
+      - name: Uitgave maken
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "Miel Monteur $GITHUB_REF_NAME" \
+            --notes "Zie de README voor uitleg. Het spel zelf zit er niet bij: gebruik je eigen cd-rom, ISO of download." \
+            artifacts/MielMonteur-Windows/MielMonteur-Windows.zip artifacts/MielMonteur-Web.zip
+
+  # De browserversie op GitHub Pages zetten. Zet hiervoor in de repository
+  # (Settings > Pages) de bron op "GitHub Actions" en maak onder Settings >
+  # Secrets and variables > Actions > Variables de variabele MIEL_PAGES=true.
+  pages:
+    name: GitHub Pages
+    if: vars.MIEL_PAGES == 'true' && github.event_name == 'push'
+    needs: web
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: MielMonteur-Web
+          path: site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

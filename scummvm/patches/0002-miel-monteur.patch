@@ -1,0 +1,384 @@
+diff --git a/engines/director/detection.cpp b/engines/director/detection.cpp
+index de1ff403..4803e205 100644
+--- a/engines/director/detection.cpp
++++ b/engines/director/detection.cpp
+@@ -160,7 +160,178 @@ static char s_fallbacGameIdBuffer[256];
+ static char s_fallbackFileNameBuffer[51];
+ static char s_fallbackExtraBuf[256];
+ 
++// Miel Monteur bouwt auto's / Mulle Meck bygger bilar / Autos bauen mit Willy
++// Werkel / Building Cars with Gary Gadget, in any language or release. The
++// table knows a few releases by their projector; the others (the Dutch
++// Levande Böcker and Transposia discs, the download, copies that were
++// installed, discs merged with another language's projector) are recognised
++// by the movies all of them share: the shared casts 00 and CDDATA, the garage
++// (03), the driving map (05) and the car show (94).
++
++static Director::DirectorGameDescription s_mulleBilarDesc = {
++	{
++		"garygadget1",
++		"",
++		AD_ENTRY1(nullptr, nullptr),
++		Common::NL_NLD,
++		Common::kPlatformWindows,
++		ADGF_NO_FLAGS,
++		GUIO0()
++	},
++	Director::GID_GENERIC,
++	600
++};
++
++static char s_mulleBilarFileName[256];
++
++static const char *const kMulleBilarMovies[] = { "00.cxt", "cddata.cxt", "03.dxr", "05.dxr", "94.dxr" };
++
++// A file's name as on the disc: copies made from an ISO can keep the ";1"
++// version and the trailing dot of ISO 9660 names.
++static Common::String mulleFileName(const Common::FSNode &node) {
++	Common::String name = node.getName();
++	size_t semicolon = name.findLastOf(';');
++	if (semicolon != Common::String::npos)
++		name = name.substr(0, semicolon);
++	while (!name.empty() && name.lastChar() == '.')
++		name.deleteLastChar();
++	name.toLowercase();
++	return name;
++}
++
++// The Director version of a Windows projector, from the tag its tail points
++// at; 0 for any other file.
++static uint16 mulleProjectorVersion(const Common::FSNode &node) {
++	Common::File f;
++	if (!f.open(node) || f.size() < 8)
++		return 0;
++	f.seek(-4, SEEK_END);
++	uint32 offset = f.readUint32LE();
++	if (f.eos() || offset == 0 || offset >= (uint32)(f.size() - 4))
++		return 0;
++	f.seek(offset);
++	switch (f.readUint32LE()) {
++	case MKTAG('P', 'J', '9', '5'):
++		return 500;
++	case MKTAG('P', 'J', '9', '7'):
++		return 600;
++	case MKTAG('P', 'J', '0', '0'):
++		return 700;
++	case MKTAG('P', 'J', '0', '1'):
++		return 800;
++	default:
++		return 0;
++	}
++}
++
++struct MulleBilarScan {
++	Common::String moviesDir;	// where the movies are, relative to the game folder ("" for the folder itself)
++	Common::String projector;	// the best projector, relative to the game folder
++	uint16 projectorVersion = 0;
++	int projectorScore = 0;
++	Common::Language language = Common::UNK_LANG;
++	bool foundMovies = false;
++};
++
++static Common::Language mulleLanguageFromName(const Common::String &lowerName) {
++	if (lowerName.contains("miel") || lowerName.contains("monteur"))
++		return Common::NL_NLD;
++	if (lowerName.contains("willy") || lowerName.contains("werkel"))
++		return Common::DE_DEU;
++	if (lowerName.contains("mekk"))
++		return Common::NB_NOR;
++	if (lowerName.contains("mulle") || lowerName.contains("meck"))
++		return Common::SV_SWE;
++	if (lowerName.contains("gary") || lowerName.contains("gadget"))
++		return Common::EN_ANY;
++	return Common::UNK_LANG;
++}
++
++static void scanMulleBilar(const Common::FSList &list, const Common::String &prefix, int depth, MulleBilarScan &scan) {
++	uint found = 0;
++	for (uint i = 0; i < ARRAYSIZE(kMulleBilarMovies); i++) {
++		for (const auto &node : list) {
++			if (!node.isDirectory() && mulleFileName(node) == kMulleBilarMovies[i]) {
++				found++;
++				break;
++			}
++		}
++	}
++	if (found == ARRAYSIZE(kMulleBilarMovies) && !scan.foundMovies) {
++		scan.foundMovies = true;
++		scan.moviesDir = prefix;
++	}
++
++	for (const auto &node : list) {
++		const Common::String name = mulleFileName(node);
++		if (node.isDirectory()) {
++			Common::FSList children;
++			if (depth > 1 && node.getChildren(children, Common::FSNode::kListAll))
++				scanMulleBilar(children, prefix + node.getName() + "/", depth - 1, scan);
++			continue;
++		}
++		if (!name.hasSuffix(".exe") || name.hasPrefix("setup") || name.hasPrefix("install") || name.hasPrefix("unins"))
++			continue;
++		const uint16 version = mulleProjectorVersion(node);
++		if (!version)
++			continue;
++		// The 32-bit Director 6 projector the game was made with (MULLE32.EXE,
++		// WILLY32.EXE, ...) first; the 16-bit one (...16.EXE) only if there is
++		// nothing else.
++		int score = version == 600 ? 30 : 20;
++		if (name.hasSuffix("32.exe"))
++			score += 5;
++		if (name.hasSuffix("16.exe"))
++			score -= 15;
++		if (score > scan.projectorScore) {
++			scan.projectorScore = score;
++			scan.projector = prefix + node.getName();
++			scan.projectorVersion = version;
++		}
++		if (scan.language == Common::UNK_LANG)
++			scan.language = mulleLanguageFromName(name);
++	}
++}
++
++static ADDetectedGame detectMulleBilar(const Common::FSList &fslist, ADDetectedGameExtraInfo **extraInfo) {
++	MulleBilarScan scan;
++	scanMulleBilar(fslist, "", 3, scan);
++	if (!scan.foundMovies)
++		return ADDetectedGame();
++
++	Director::DirectorGameDescription *desc = &s_mulleBilarDesc;
++	Common::String main = scan.projector;
++	desc->version = scan.projectorVersion ? scan.projectorVersion : 600;
++	if (main.empty()) {
++		// No projector (a copy of the movies only): start with the intro.
++		main = scan.moviesDir + "10.DXR";
++	}
++	Common::strlcpy(s_mulleBilarFileName, main.c_str(), sizeof(s_mulleBilarFileName));
++	desc->desc.filesDescriptions[0].fileName = s_mulleBilarFileName;
++	desc->desc.filesDescriptions[0].md5 = nullptr;
++	desc->desc.filesDescriptions[0].fileSize = AD_NO_SIZE;
++	// Nothing in the files says which language they speak but the
++	// projector's name; this build is made for Miel Monteur, so Dutch.
++	desc->desc.language = scan.language != Common::UNK_LANG ? scan.language : Common::NL_NLD;
++
++	warning("Director: Miel Monteur / Mulle Meck bygger bilar recognised by its movies in '%s', starting '%s' (D%d)",
++		scan.moviesDir.empty() ? "." : scan.moviesDir.c_str(), main.c_str(), desc->version / 100);
++
++	if (extraInfo != nullptr) {
++		*extraInfo = new ADDetectedGameExtraInfo;
++		if (desc->desc.language == Common::NL_NLD) {
++			(*extraInfo)->gameName = "Miel Monteur bouwt auto's";
++			(*extraInfo)->targetID = "mielmonteur";
++		}
++	}
++	return ADDetectedGame(&desc->desc);
++}
++
+ ADDetectedGame DirectorMetaEngineDetection::fallbackDetect(const FileMap &allFiles, const Common::FSList &fslist, ADDetectedGameExtraInfo **extraInfo) const {
++	ADDetectedGame mulle = detectMulleBilar(fslist, extraInfo);
++	if (mulle.desc)
++		return mulle;
++
+ 	// TODO: Handle Mac fallback
+ 
+ 	// reset fallback description
+diff --git a/engines/director/game-menu.cpp b/engines/director/game-menu.cpp
+index 2f675483..904cf902 100644
+--- a/engines/director/game-menu.cpp
++++ b/engines/director/game-menu.cpp
+@@ -22,6 +22,7 @@
+ #include "common/archive.h"
+ #include "common/config-manager.h"
+ #include "common/events.h"
++#include "common/language.h"
+ #include "common/system.h"
+ 
+ #include "backends/keymapper/keymap.h"
+@@ -66,6 +67,55 @@ static const char *const kFontFile = "Fredoka-SemiBold.ttf";
+ static const uint32 kRepeatDelay = 400;
+ static const uint32 kRepeatRate = 110;
+ 
++// The menu speaks the game's language: Swedish as written below, Dutch for
++// Miel Monteur (the Dutch releases, or a target with language=nl).
++static const struct {
++	const char *sv;
++	const char *nl;
++} kDutch[] = {
++	{ "Paus", "Pauze" },
++	{ "Fortsätt", "Verder spelen" },
++	{ "Spara", "Opslaan" },
++	{ "Ladda", "Laden" },
++	{ "Visa i fönster", "In een venster" },
++	{ "Helskärm", "Volledig scherm" },
++	{ "Fler inställningar", "Meer instellingen" },
++	{ "Avsluta", "Stoppen" },
++	{ "Spara spelet", "Spel opslaan" },
++	{ "Ladda ett spel", "Een spel laden" },
++	{ "Tillbaka", "Terug" },
++	{ "Vill du sluta spela?", "Wil je stoppen met spelen?" },
++	{ "Spara över det här spelet?", "Dit spel overschrijven?" },
++	{ "Ja, sluta", "Ja, stoppen" },
++	{ "Ja, spara", "Ja, opslaan" },
++	{ "Nej", "Nee" },
++	{ "Tom", "Leeg" },
++	{ "Tom plats", "Lege plek" },
++	{ "Senaste · ", "Laatste · " },
++	{ "Tidigare · ", "Eerder · " },
++	{ "idag", "vandaag" },
++	{ "igår", "gisteren" },
++	{ "Det gick inte att spara", "Opslaan is niet gelukt" },
++	{ "Sparat!", "Opgeslagen!" },
++	{ "Välj", "Kiezen" },
++};
++
++static bool menuInDutch() {
++	if (g_director->getLanguage() == Common::NL_NLD)
++		return true;
++	return Common::parseLanguage(ConfMan.get("language")) == Common::NL_NLD;
++}
++
++static const char *say(const char *sv) {
++	if (!menuInDutch())
++		return sv;
++	for (uint i = 0; i < ARRAYSIZE(kDutch); i++) {
++		if (!strcmp(kDutch[i].sv, sv))
++			return kDutch[i].nl;
++	}
++	return sv;
++}
++
+ GameMenu::GameMenu(DirectorEngine *vm) : _vm(vm) {
+ 	// 0xAARRGGBB in a uint32
+ 	_format = Graphics::PixelFormat(4, 8, 8, 8, 8, 16, 8, 0, 24);
+@@ -206,7 +256,7 @@ void GameMenu::showPage(Page page, int focus) {
+ 
+ 	switch (page) {
+ 	case kPageMain: {
+-		_title = Common::U32String("Paus");
++		_title = Common::U32String(say("Paus"));
+ 		const bool fullscreen = g_system->hasFeature(OSystem::kFeatureFullscreenMode);
+ 		const int count = fullscreen ? 6 : 5;
+ 		const int buttonH = 44, gap = 10, buttonW = 280;
+@@ -219,22 +269,22 @@ void GameMenu::showPage(Page page, int focus) {
+ 			y += buttonH + gap;
+ 			return box;
+ 		};
+-		addItem(kItemContinue, next(), "Fortsätt");
++		addItem(kItemContinue, next(), say("Fortsätt"));
+ 		// Saves belong to a player: none before one has logged in.
+ 		const bool player = !_vm->currentPlayerName().empty();
+-		addItem(kItemSave, next(), "Spara", player && _vm->canSaveGameStateCurrently());
+-		addItem(kItemLoad, next(), "Ladda", player && _vm->canLoadGameStateCurrently());
++		addItem(kItemSave, next(), say("Spara"), player && _vm->canSaveGameStateCurrently());
++		addItem(kItemLoad, next(), say("Ladda"), player && _vm->canLoadGameStateCurrently());
+ 		if (fullscreen)
+-			addItem(kItemFullscreen, next(), g_system->getFeatureState(OSystem::kFeatureFullscreenMode) ? "Visa i fönster" : "Helskärm");
+-		addItem(kItemSettings, next(), "Fler inställningar");
+-		addItem(kItemQuit, next(), "Avsluta");
++			addItem(kItemFullscreen, next(), g_system->getFeatureState(OSystem::kFeatureFullscreenMode) ? say("Visa i fönster") : say("Helskärm"));
++		addItem(kItemSettings, next(), say("Fler inställningar"));
++		addItem(kItemQuit, next(), say("Avsluta"));
+ 		break;
+ 	}
+ 	case kPageSave:
+ 	case kPageLoad: {
+ 		readSlots();
+ 		const bool saving = page == kPageSave;
+-		_title = Common::U32String(saving ? "Spara spelet" : "Ladda ett spel");
++		_title = Common::U32String(saving ? say("Spara spelet") : say("Ladda ett spel"));
+ 		// Saving: the player's six slots in two rows. Loading: the three
+ 		// autosaves on top, then the player's slots.
+ 		const int rows = saving ? 2 : 3;
+@@ -244,7 +294,7 @@ void GameMenu::showPage(Page page, int focus) {
+ 		const int panelW = MAX(gridW + 48, 520);
+ 		const int top = MAX(6, (444 - panelH) / 2);
+ 		_panel = Common::Rect(320 - panelW / 2, top, 320 + panelW / 2, top + panelH);
+-		addItem(kItemBack, Common::Rect(_panel.left + 14, top + 14, _panel.left + 14 + 112, top + 14 + 36), "Tillbaka");
++		addItem(kItemBack, Common::Rect(_panel.left + 14, top + 14, _panel.left + 14 + 112, top + 14 + 36), say("Tillbaka"));
+ 		const int gridTop = top + 16 + 40 + 14;
+ 		const int firstSlot = saving ? kFirstManualSlot : 0;
+ 		// The newer of the two older autosaves first.
+@@ -262,10 +312,10 @@ void GameMenu::showPage(Page page, int focus) {
+ 		break;
+ 	}
+ 	case kPageConfirm: {
+-		_title = Common::U32String(_confirm == kConfirmQuit ? "Vill du sluta spela?" : "Spara över det här spelet?");
++		_title = Common::U32String(_confirm == kConfirmQuit ? say("Vill du sluta spela?") : say("Spara över det här spelet?"));
+ 		_panel = Common::Rect(320 - 210, 150, 320 + 210, 330);
+-		addItem(kItemYes, Common::Rect(320 - 180, 250, 320 - 10, 294), _confirm == kConfirmQuit ? "Ja, sluta" : "Ja, spara");
+-		addItem(kItemNo, Common::Rect(320 + 10, 250, 320 + 180, 294), "Nej");
++		addItem(kItemYes, Common::Rect(320 - 180, 250, 320 - 10, 294), _confirm == kConfirmQuit ? say("Ja, sluta") : say("Ja, spara"));
++		addItem(kItemNo, Common::Rect(320 + 10, 250, 320 + 180, 294), say("Nej"));
+ 		break;
+ 	}
+ 	}
+@@ -299,15 +349,15 @@ void GameMenu::readSlots() {
+ 			desc = metaEngine->querySaveMetaInfos(target.c_str(), _slotBase + slot);
+ 		s.used = _slotBase >= 0 && desc.getSaveSlot() == _slotBase + slot;
+ 		if (!s.used) {
+-			s.caption = Common::U32String(slot < kFirstManualSlot ? "Tom" : "Tom plats");
++			s.caption = Common::U32String(slot < kFirstManualSlot ? say("Tom") : say("Tom plats"));
+ 			continue;
+ 		}
+ 		s.when = desc.getSaveDate() + " " + desc.getSaveTime();
+ 		Common::U32String label;
+ 		if (slot == 0)
+-			label = Common::U32String("Senaste · ");
++			label = Common::U32String(say("Senaste · "));
+ 		else if (slot < kFirstManualSlot && desc.isAutosave())
+-			label = Common::U32String("Tidigare · ");
++			label = Common::U32String(say("Tidigare · "));
+ 		s.caption = label + dateCaption(desc);
+ 		const Graphics::Surface *thumb = desc.getThumbnail();
+ 		if (thumb) {
+@@ -319,7 +369,7 @@ void GameMenu::readSlots() {
+ 	}
+ }
+ 
+-// "idag 14:05", "igår 09:12" or "3 okt 14:05"
++// "idag 14:05", "igår 09:12" or "3 okt 14:05" (Dutch: "vandaag 14:05", "gisteren 09:12", "3 okt 14:05")
+ Common::U32String GameMenu::dateCaption(const SaveStateDescriptor &desc) const {
+ 	int year = 0, month = 0, day = 0;
+ 	if (sscanf(desc.getSaveDate().c_str(), "%d-%d-%d", &year, &month, &day) != 3)
+@@ -336,13 +386,14 @@ Common::U32String GameMenu::dateCaption(const SaveStateDescriptor &desc) const {
+ 	};
+ 	const int age = dayNumber(now.tm_year + 1900, now.tm_mon + 1, now.tm_mday) - dayNumber(year, month, day);
+ 	static const char *const months[] = { "jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec" };
++	static const char *const monthsDutch[] = { "jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec" };
+ 	Common::String date;
+ 	if (age == 0)
+-		date = "idag";
++		date = say("idag");
+ 	else if (age == 1)
+-		date = "igår";
++		date = say("igår");
+ 	else
+-		date = Common::String::format("%d %s", day, months[CLIP(month, 1, 12) - 1]);
++		date = Common::String::format("%d %s", day, (menuInDutch() ? monthsDutch : months)[CLIP(month, 1, 12) - 1]);
+ 	return Common::U32String(date + " " + desc.getSaveTime());
+ }
+ 
+@@ -570,11 +621,11 @@ void GameMenu::saveTo(int slot) {
+ 		warning("GameMenu::saveTo(): %s", status.getDesc().c_str());
+ 		showPage(kPageMain);
+ 		focusItem(kItemSave);
+-		toast("Det gick inte att spara");
++		toast(say("Det gick inte att spara"));
+ 		return;
+ 	}
+ 	showPage(kPageMain);
+-	toast("Sparat!");
++	toast(say("Sparat!"));
+ }
+ 
+ // Saves (an autosave) and quits. The game sets the exitLock so that quitting
+@@ -846,8 +897,8 @@ void GameMenu::drawHints() {
+ 		const char *label;
+ 	};
+ 	const Hint hints[] = {
+-		{ "A", kPadA, "Välj" },
+-		{ "B", kPadB, _page == kPageMain ? "Fortsätt" : "Tillbaka" },
++		{ "A", kPadA, say("Välj") },
++		{ "B", kPadB, _page == kPageMain ? say("Fortsätt") : say("Tillbaka") },
+ 	};
+ 	Graphics::Font *f = font(kHintSize);
+ 	int widths[ARRAYSIZE(hints)], total = 0;

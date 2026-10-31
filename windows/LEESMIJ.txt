@@ -1,0 +1,68 @@
+MIEL MONTEUR BOUWT AUTO'S - voor Windows 10 en 11
+==================================================
+
+Het originele spel uit 1997, zoals het was, maar dan op een computer van nu:
+geen installatie, geen 256-kleurenstand, geen compatibiliteitsinstellingen.
+Het draait op ScummVM, met verbeteringen voor de Mulle Meck / Miel
+Monteur-spellen (opslaan, pauzemenu, besturing met een controller).
+
+HET SPEL ZELF ZIT ER NIET BIJ. Je hebt je eigen exemplaar nodig:
+  - de cd-rom (Levande Boecker 1997, of Transposia "De mafste auto's bouw
+    je zelf!" uit 2001), of
+  - een ISO- of ZIP-bestand van die cd, of
+  - de map van een geinstalleerde versie.
+
+
+Spelen
+------
+1. Pak deze ZIP uit (rechtsklik > Alles uitpakken...), bijvoorbeeld op het
+   Bureaublad. Niet in "Program Files".
+2. Dubbelklik op "Miel Monteur.bat".
+   Zegt Windows "Windows heeft uw pc beschermd"? Klik op "Meer informatie"
+   en dan op "Toch uitvoeren". (Dat staat er bij elk programma dat niet van
+   een groot bedrijf komt.)
+3. De eerste keer zoekt hij het spel: op de cd-rom, in Downloads, op het
+   Bureaublad en in Documenten. Vindt hij niets, dan kies je zelf het ISO-
+   of ZIP-bestand, of een bestand uit de map van het spel (bijvoorbeeld
+   CDDATA.CXT). Het spel wordt dan gekopieerd naar de map "spel"; de cd
+   is daarna niet meer nodig.
+
+
+Tijdens het spelen
+------------------
+  Esc of F5         pauzemenu: verder spelen, opslaan, laden, volledig
+                    scherm, stoppen
+  Alt+Enter         volledig scherm aan/uit
+  Ctrl+F5           het menu van ScummVM zelf
+
+Het spel slaat ook zelf op (elke 30 seconden en bij elke nieuwe plek), per
+speler. Opgeslagen spellen staan in de map "opgeslagen".
+
+
+Een ander exemplaar van het spel
+--------------------------------
+Dubbelklik op "Ander spel kiezen.bat". Opgeslagen spellen blijven bewaard.
+
+
+Werkt iets niet?
+----------------
+- Het logboek van ScummVM staat in
+  %APPDATA%\ScummVM\Logs\scummvm.log
+- Begint de herkenning niet? Kijk of in de map "spel" (of op je cd) een map
+  MOVIES staat met onder andere 00.CXT, CDDATA.CXT, 03.DXR, 05.DXR en
+  94.DXR. Dat zijn de bestanden waaraan het spel herkend wordt.
+
+
+Wat zit erin
+------------
+  Miel Monteur.bat        hiermee start je het spel
+  Ander spel kiezen.bat   een andere cd/ISO/ZIP kiezen
+  programma\              ScummVM (scummvm.exe, SDL2.dll), de starter en
+                          lettertypes
+  programma\licenties\    de licenties (ScummVM: GPL 3.0)
+  programma\broncode\     de ScummVM-versie en de patches waarmee
+                          scummvm.exe gebouwd is
+
+Dit is een hobbyproject, zonder band met de makers of uitgevers van Miel
+Monteur. ScummVM: https://www.scummvm.org. De verbeteringen voor de Mulle
+Meck-spellen komen van https://github.com/dankar89/mellemuck.

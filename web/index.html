@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="nl">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Miel Monteur bouwt auto's</title>
+  <link rel="stylesheet" href="miel.css">
+  <script type="module" src="miel.js"></script>
+</head>
+
+<body>
+  <main id="welkom">
+    <h1>Miel Monteur <span>bouwt auto's</span></h1>
+    <p class="intro">Het originele spel uit 1997, gewoon in je browser. Het draait op
+      <a href="https://www.scummvm.org" target="_blank" rel="noopener">ScummVM</a>; jij zorgt voor het spel.</p>
+
+    <section id="geen-spel" hidden>
+      <h2>Waar staat je spel?</h2>
+      <p>Kies de cd-rom als ISO-bestand, een ZIP, of de map waarin het spel staat (bijvoorbeeld je cd-station).
+        Het spel blijft op deze computer: het wordt in de browser bewaard en nergens naartoe gestuurd
+        (ook als je browser bij een map vraagt of je de bestanden wilt "uploaden").</p>
+      <div class="knoppen">
+        <label class="knop groot">ISO- of ZIP-bestand kiezen
+          <input type="file" id="kies-bestand" accept=".iso,.zip,.bin,.img,.mdf" hidden>
+        </label>
+        <label class="knop groot">Map kiezen
+          <input type="file" id="kies-map" webkitdirectory multiple hidden>
+        </label>
+      </div>
+      <div id="sleepvak">…of sleep het bestand of de map hierheen</div>
+      <details>
+        <summary>Ik heb het spel niet (meer)</summary>
+        <p>Heb je de oude cd-rom nog, stop hem dan in de computer en kies het cd-station als map.
+          Transposia, de Nederlandse uitgever, verkocht <em>Miel Monteur bouwt auto's</em> ook als download
+          voor Windows; kies dan de map waarin het spel geïnstalleerd is.</p>
+      </details>
+    </section>
+
+    <section id="wel-spel" hidden>
+      <button class="knop groot spelen" id="spelen">▶ Spelen</button>
+      <p id="spel-info"></p>
+      <div class="knoppen klein">
+        <label class="knop">Ander spel kiezen
+          <input type="file" id="kies-ander" accept=".iso,.zip,.bin,.img,.mdf" hidden>
+        </label>
+        <label class="knop">Andere map kiezen
+          <input type="file" id="kies-andere-map" webkitdirectory multiple hidden>
+        </label>
+        <button class="knop" id="wissen">Spel uit de browser wissen</button>
+      </div>
+    </section>
+
+    <section id="bezig" hidden>
+      <p id="bezig-tekst">Bezig…</p>
+      <progress id="bezig-balk" max="1" value="0"></progress>
+    </section>
+
+    <p id="fout" role="alert" hidden></p>
+
+    <section class="uitleg">
+      <h2>Tijdens het spelen</h2>
+      <dl>
+        <dt>Esc of F5</dt><dd>pauzemenu: verder spelen, opslaan, laden, volledig scherm, stoppen</dd>
+        <dt>Ctrl+F5</dt><dd>het menu van ScummVM zelf</dd>
+      </dl>
+      <p>Het spel slaat ook zelf op, per speler, in deze browser.</p>
+    </section>
+
+    <footer>
+      Een hobbyproject, zonder band met de makers of uitgevers van Miel Monteur.
+      ScummVM en de verbeteringen voor de Mulle Meck-spellen
+      (<a href="https://github.com/dankar89/mellemuck" target="_blank" rel="noopener">mellemuck</a>)
+      zijn vrije software: <a href="licenties/GPL-3.0.txt">GPL 3.0</a>.
+      Lettertypes: <a href="licenties/Fredoka-OFL.txt">Fredoka</a>, <a href="licenties/Liberation-LICENSE.txt">Liberation</a> (OFL).
+    </footer>
+  </main>
+
+  <div id="speelveld" hidden>
+    <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+    <div id="laadstatus" hidden></div>
+  </div>
+</body>
+
+</html>
