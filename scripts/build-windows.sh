@@ -8,7 +8,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="${1:-$ROOT/dist/MielMonteur}"
+OUT="$(realpath -m "${1:-$ROOT/dist/MielMonteur}")"
 SRC="$ROOT/build/scummvm"
 BUILD="$ROOT/build/scummvm-windows"
 DEPS="$ROOT/build/mingw-deps"

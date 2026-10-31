@@ -8,7 +8,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="${1:-$ROOT/dist/web}"
+OUT="$(realpath -m "${1:-$ROOT/dist/web}")"
 # Een eigen kopie van de bron: Emscripten bouwt in de bronmap zelf.
 SRC="$ROOT/build/scummvm-web"
 EMSDK_VERSION="${EMSDK_VERSION:-4.0.10}"
@@ -34,6 +34,7 @@ ln -sfn "$EMSDK_DIR" "$SRC/dists/emscripten/emsdk-$EMSDK_VERSION"
 )
 
 rm -rf "$OUT"
+mkdir -p "$(dirname "$OUT")"
 cp -r "$SRC/build-emscripten" "$OUT"
 # De lettertypes voor het pauzemenu en Director's Windows-lettertypes; ze
 # komen via de data-map (HTTP) binnen, dus de index opnieuw maken.
