@@ -1,0 +1,72 @@
+diff --git a/engines/director/director.h b/engines/director/director.h
+--- a/engines/director/director.h
++++ b/engines/director/director.h
+@@ -201,6 +201,8 @@
+ 	const char *getGameId() const;
+ 	uint16 getDescriptionVersion() const;
+ 	uint16 getVersion() const { return _version; }
++	// Only before the Lingo is created (game quirks): the version the movies need.
++	void setStartVersion(uint16 version) { _version = version; }
+ 	void setVersion(uint16 version);
+ 	Common::Platform getPlatform() const;
+ 	Common::Language getLanguage() const;
+diff --git a/engines/director/game-quirks.cpp b/engines/director/game-quirks.cpp
+--- a/engines/director/game-quirks.cpp
++++ b/engines/director/game-quirks.cpp
+@@ -292,6 +292,12 @@
+ 	g_director->_pointerArt[Graphics::kMacCursorCrossHair] = "C_Grab";
+ 	g_director->_pointerArt[Graphics::kMacCursorCrossBar] = "C_Grab";
+ 	g_director->_drivingArrows = "05n002v0";
++	// The movies are all Director 6, whatever projector the release has: a
++	// 1995-era PJ95 tag on MULLE32.EXE (read as D5), or Transposia's Start.exe,
++	// a Director 7 projector, which ScummVM would run the movies in as D7 (text
++	// fields came out black).
++	if (g_director->getVersion() == 500 || g_director->getVersion() == 700)
++		g_director->setStartVersion(600);
+ 	// Miel Monteur: the Swedish and German projectors (MULLE32.EXE,
+ 	// Willy32.exe) go straight to the game, but other releases (the Dutch
+ 	// discs, Transposia's Start.exe) open Levande Böcker's start menu first,
+@@ -303,7 +309,10 @@
+ 		static const char *const firstMovies[] = { "MOVIES/10.DXR", "10.DXR", "DATA/MOVIES/10.DXR" };
+ 		for (const char *movie : firstMovies) {
+ 			if (SearchMan.hasFile(Common::Path(movie))) {
+-				warning("Miel Monteur: starting at %s instead of %s (the disc's start menu)", movie, exe.c_str());
++				static bool told = false;	// the quirks run again for every movie
++				if (!told)
++					warning("Miel Monteur: starting at %s instead of %s (the disc's start menu)", movie, exe.c_str());
++				told = true;
+ 				g_director->setDefaultStartMovie(movie);
+ 				break;
+ 			}
+diff --git a/graphics/macgui/mactext.cpp b/graphics/macgui/mactext.cpp
+--- a/graphics/macgui/mactext.cpp
++++ b/graphics/macgui/mactext.cpp
+@@ -1156,6 +1156,28 @@
+ 		SWAP(s.startCol, s.endCol);
+ 	}
+ 
++	// A selection of no characters, or of blanks only (a game that selects
++	// everything in a field it has not filled yet) highlights nothing: without this the end of an empty line counts as "all
++	// text" below and the whole box is inverted (Mulle Meck's empty name field
++	// came out solid black).
++	if (s.startRow == s.endRow) {
++		bool blank = s.startCol == s.endCol;
++		if (!blank) {
++			// Only blanks on the line (Mulle Meck's name field holds a lone
++			// space): nothing to highlight, and the "to the end of the line"
++			// rule below would invert the whole box.
++			blank = true;
++			for (const MacFontRun &run : _canvas._text[s.startRow].chunks) {
++				for (uint32 i = 0; i < run.text.size(); i++) {
++					if (run.text[i] != ' ' && run.text[i] != '\r' && run.text[i] != '\n' && run.text[i] != '\t')
++						blank = false;
++				}
++			}
++		}
++		if (blank)
++			return;
++	}
++
+ 	int lastLineStart = s.endY;
+ 	s.endY += getLineHeight(s.endRow);
+ 

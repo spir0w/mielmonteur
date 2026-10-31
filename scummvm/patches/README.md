@@ -43,3 +43,18 @@ Onze toevoegingen voor de Nederlandse versies:
 - **Geen Engels foutvenster bij `open`** (`engines/director/lingo/lingo-builtins.cpp`)
   voor de Mulle Meck-spellen: die openen alleen vanuit hun startmenu andere
   programma's; een venster waar een kind niet voorbij kan helpt niemand.
+
+## 0003-director-6-en-leeg-naamveld.patch
+
+Gevonden met de echte Transposia-cd (Start.exe, Director 7-programma):
+
+- **Altijd Director 6** (`game-quirks.cpp`, `director.h`). De films zijn
+  Director 6, maar `Start.exe` is een Director 7-programma en `MULLE32.EXE`
+  draagt een oudere versietag (gelezen als Director 5). ScummVM draaide de
+  films dan in de verkeerde versie. Voor het autospel is het nu altijd 6.
+- **Het lege naamvak was zwart** (`graphics/macgui/mactext.cpp`). Het spel
+  selecteert bij het starten "alles" in het naamvak, dat alleen een spatie
+  bevat. ScummVM leest "selectie tot het einde van de regel" als "de hele
+  regel tot de rand" en keerde het hele vak om (wit werd zwart). Een
+  selectie van alleen witruimte tekent nu niets. (mellemuck noemt dit als open
+  probleem: "An empty text field draws solid black".)
