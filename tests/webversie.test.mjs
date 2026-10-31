@@ -134,6 +134,8 @@ const soorten = {
 			assert.ok(gevraagd.includes('/miel/data/index.json'), "ScummVM's data uit de submap");
 			assert.ok(!gevraagd.some((p) => p.startsWith('/data/')), 'niets uit /data/ van de wortel');
 			assert.ok(console_.some((r) => herkend.test(r)), 'ScummVM herkent de nep-cd als Miel Monteur');
+			assert.ok(console_.some((r) => /Miel Monteur: starting at MOVIES\/10\.DXR instead of DATA\/MIEL32\.EXE/.test(r)),
+				'het startmenu van de cd wordt overgeslagen: het spel begint bij film 10');
 			assert.ok(geteld.mousedown >= 1 && geteld.mouseup >= 1, 'een tik komt als muisklik bij SDL');
 			assert.ok(!geteld.touchstart && !geteld.touchend, 'aanraking zelf niet (anders klikt ScummVM dubbel)');
 			assert.ok(geteld.keydown >= 1 && geteld.keyup >= 1, 'de Pauze-knop komt als toets bij SDL');

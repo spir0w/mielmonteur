@@ -33,3 +33,13 @@ Onze toevoegingen voor de Nederlandse versies:
 - **Het pauzemenu in het Nederlands** (`engines/director/game-menu.cpp`) als het
   spel Nederlands is (of het doel `language=nl` heeft); Zweeds blijft voor de
   andere versies.
+- **Het startmenu van de cd overslaan** (`engines/director/game-quirks.cpp`).
+  De Zweedse en Duitse programma's gaan meteen naar het spel, maar de
+  Nederlandse cd's beginnen met het startmenu van Levande Böcker, dat kijkt of
+  het spel op de harde schijf geïnstalleerd is en anders het
+  installatieprogramma probeert te starten ("Unsupported command open …
+  C:\"). Net als mellemuck bij de boten beginnen we dan bij de eerste film van
+  het spel zelf, `MOVIES/10.DXR` (naam en titel).
+- **Geen Engels foutvenster bij `open`** (`engines/director/lingo/lingo-builtins.cpp`)
+  voor de Mulle Meck-spellen: die openen alleen vanuit hun startmenu andere
+  programma's; een venster waar een kind niet voorbij kan helpt niemand.

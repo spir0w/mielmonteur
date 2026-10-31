@@ -382,3 +382,49 @@ index 2f675483..904cf902 100644
  	};
  	Graphics::Font *f = font(kHintSize);
  	int widths[ARRAYSIZE(hints)], total = 0;
+diff --git a/engines/director/game-quirks.cpp b/engines/director/game-quirks.cpp
+index be976a1d..1870c84c 100644
+--- a/engines/director/game-quirks.cpp
++++ b/engines/director/game-quirks.cpp
+@@ -292,6 +292,23 @@ static void quirkMulleMeckBilar() {
+ 	g_director->_pointerArt[Graphics::kMacCursorCrossHair] = "C_Grab";
+ 	g_director->_pointerArt[Graphics::kMacCursorCrossBar] = "C_Grab";
+ 	g_director->_drivingArrows = "05n002v0";
++	// Miel Monteur: the Swedish and German projectors (MULLE32.EXE,
++	// Willy32.exe) go straight to the game, but other releases (the Dutch
++	// discs, Transposia's Start.exe) open Levande Böcker's start menu first,
++	// which checks for an installation on the hard disk and otherwise tries to
++	// run the installer ("open ... C:\"). As Bygger båtar: start with the
++	// game's own first movie, 10 (the name screen and title).
++	const Common::String exe = g_director->getRawEXEName();
++	if (!exe.hasSuffixIgnoreCase("MULLE32.EXE") && !exe.hasSuffixIgnoreCase("Willy32.exe") && !exe.hasSuffixIgnoreCase(".DXR")) {
++		static const char *const firstMovies[] = { "MOVIES/10.DXR", "10.DXR", "DATA/MOVIES/10.DXR" };
++		for (const char *movie : firstMovies) {
++			if (SearchMan.hasFile(Common::Path(movie))) {
++				warning("Miel Monteur: starting at %s instead of %s (the disc's start menu)", movie, exe.c_str());
++				g_director->setDefaultStartMovie(movie);
++				break;
++			}
++		}
++	}
+ }
+ 
+ // Bygger båtar: as Bygger bilar, but players are numbered (UsersDB is a list
+diff --git a/engines/director/lingo/lingo-builtins.cpp b/engines/director/lingo/lingo-builtins.cpp
+index d7e1aff7..0bb247c5 100644
+--- a/engines/director/lingo/lingo-builtins.cpp
++++ b/engines/director/lingo/lingo-builtins.cpp
+@@ -2004,8 +2004,12 @@ void LB::b_open(int nargs) {
+ 
+ 	warning("LB::b_open(): Unsupported command open encountered -> The movie tried to open %s %s", ex.asString().c_str(), d.type != VOID ? d.asString().c_str() : "");
+ 
++	// The Mulle Meck / Miel Monteur games only open other programs from their
++	// start menus (the installer, a web browser): no English dialog that a child
++	// cannot get past, the warning above is enough.
+ 	if (!debugChannelSet(-1, kDebugFewFramesOnly) &&
+-		!(g_director->getGameGID() == GID_TEST || g_director->getGameGID() == GID_TESTALL)) {
++		!(g_director->getGameGID() == GID_TEST || g_director->getGameGID() == GID_TESTALL) &&
++		!Common::String(g_director->getGameId()).hasPrefix("garygadget")) {
+ 		Common::U32String message = Common::String::format("Unsupported command open encountered -> The movie tried to execute open %s %s!", ex.asString().c_str(), d.type != VOID ? d.asString().c_str() : "");
+ 		GUI::MessageDialog dialog(message);
+ 		dialog.runModal();
