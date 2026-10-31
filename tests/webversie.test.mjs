@@ -73,7 +73,28 @@ const soorten = {
 		const browser = await playwright.chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 		const console_ = [];
 		try {
-			const pagina = await browser.newPage({ viewport: { width: 1024, height: 768 } });
+			// Een tablet met aanraakscherm
+			const context = await browser.newContext({ viewport: { width: 1024, height: 768 }, hasTouch: true });
+			// Tel hoe vaak de luisteraars van Emscripten (SDL) afgaan, per soort:
+			// Emscripten's luisteraars roepen eventHandler.handlerFunc aan.
+			await context.addInitScript(() => {
+				window.sdlGeteld = {};
+				window.sdlLuistert = [];
+				const echt = EventTarget.prototype.addEventListener;
+				EventTarget.prototype.addEventListener = function (type, luisteraar, opties) {
+					if (typeof luisteraar === 'function' && String(luisteraar).includes('handlerFunc')) {
+						const doel = this === window ? 'window' : this === document ? 'document' : (this.id ? '#' + this.id : this.nodeName);
+						window.sdlLuistert.push(`${type}@${doel}`);
+						const origineel = luisteraar;
+						luisteraar = function (e) {
+							window.sdlGeteld[e.type] = (window.sdlGeteld[e.type] || 0) + 1;
+							return origineel.apply(this, arguments);
+						};
+					}
+					return echt.call(this, type, luisteraar, opties);
+				};
+			});
+			const pagina = await context.newPage();
 			pagina.on('console', (m) => console_.push(`[${m.type()}] ${m.text()}`));
 			pagina.on('pageerror', (e) => console_.push(`[pageerror] ${e.message}`));
 			await pagina.goto(url);
@@ -87,6 +108,19 @@ const soorten = {
 				await pagina.waitForTimeout(500);
 			// Nog even, voor wat ScummVM daarna doet (met nep-bestanden kan het spel zelf niet starten)
 			await pagina.waitForTimeout(5000);
+
+			// Aanraken en de knoppen: komen ze bij SDL aan, als muis en toetsen?
+			await pagina.evaluate(() => { window.sdlGeteld = {}; });
+			await pagina.touchscreen.tap(500, 400);
+			await pagina.waitForTimeout(500);
+			await pagina.tap('#bediening [data-toets="Escape"]');
+			await pagina.waitForTimeout(300);
+			const geteld = await pagina.evaluate(() => window.sdlGeteld);
+			const luistert = await pagina.evaluate(() => window.sdlLuistert);
+			console.log('--- SDL luistert naar ---');
+			console.log(luistert.join(' '));
+			console.log('--- bij SDL aangekomen ---');
+			console.log(JSON.stringify(geteld));
 			if (process.env.MIEL_SCHERMAFDRUK)
 				await pagina.screenshot({ path: process.env.MIEL_SCHERMAFDRUK });
 
@@ -100,6 +134,9 @@ const soorten = {
 			assert.ok(gevraagd.includes('/miel/data/index.json'), "ScummVM's data uit de submap");
 			assert.ok(!gevraagd.some((p) => p.startsWith('/data/')), 'niets uit /data/ van de wortel');
 			assert.ok(console_.some((r) => herkend.test(r)), 'ScummVM herkent de nep-cd als Miel Monteur');
+			assert.ok(geteld.mousedown >= 1 && geteld.mouseup >= 1, 'een tik komt als muisklik bij SDL');
+			assert.ok(!geteld.touchstart && !geteld.touchend, 'aanraking zelf niet (anders klikt ScummVM dubbel)');
+			assert.ok(geteld.keydown >= 1 && geteld.keyup >= 1, 'de Pauze-knop komt als toets bij SDL');
 		} finally {
 			await browser.close();
 			server.close();

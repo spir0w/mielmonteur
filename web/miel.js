@@ -1,6 +1,7 @@
 // De pagina: het spel kiezen, het in de browser bewaren (IndexedDB), en dan
 // ScummVM starten met die bestanden. ScummVM zelf staat in scummvm.js/.wasm.
 import { spelUitBestand, spelUitMap } from './importeren.js';
+import { maakBediening } from './bediening.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -312,6 +313,9 @@ function spelen() {
 	fetchNaarDezeMap();
 
 	const canvas = $('canvas');
+	// Knoppen en aanraken voor telefoons en tablets; vóór ScummVM, zodat
+	// aanraken op het spel eerst bij ons langskomt.
+	maakBediening($('speelveld'), canvas);
 	canvas.addEventListener('webglcontextlost', (e) => {
 		e.preventDefault();
 		laadStatus('De grafische kaart liet het spel los. Laad de pagina opnieuw.');

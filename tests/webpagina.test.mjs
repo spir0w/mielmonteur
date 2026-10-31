@@ -37,7 +37,7 @@ const soorten = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/
 		// De site: onze pagina met de nagebootste ScummVM
 		const site = join(werk, 'site');
 		mkdirSync(join(site, 'data'), { recursive: true });
-		for (const f of ['index.html', 'miel.css', 'miel.js', 'importeren.js'])
+		for (const f of ['index.html', 'miel.css', 'miel.js', 'importeren.js', 'bediening.js'])
 			copyFileSync(join(hier, '..', 'web', f), join(site, f));
 		copyFileSync(join(hier, 'hulp', 'scummvm-nep.js'), join(site, 'scummvm.js'));
 		writeFileSync(join(site, 'data', 'index.json'), '{}');
@@ -130,6 +130,151 @@ const soorten = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/
 			assert.match(ini, /music_volume=100/);
 			assert.match(ini, /path=\/mielmonteur\/spel/);
 			assert.doesNotMatch(ini, /path=\/fout/);
+
+			assert.deepEqual(fouten, []);
+		} finally {
+			await browser.close();
+			server.close();
+		}
+	} finally {
+		rmSync(werk, { recursive: true, force: true });
+	}
+});
+
+// Op een telefoon: aanraken als muis, de knoppen, typen en verplaatsen
+(playwright && xorriso ? test : test.skip)('webpagina op een telefoon: aanraken en knoppen', async () => {
+	const werk = mkdtempSync(join(tmpdir(), 'miel-mobiel-'));
+	try {
+		const site = join(werk, 'site');
+		mkdirSync(join(site, 'data'), { recursive: true });
+		for (const f of ['index.html', 'miel.css', 'miel.js', 'importeren.js', 'bediening.js'])
+			copyFileSync(join(hier, '..', 'web', f), join(site, f));
+		copyFileSync(join(hier, 'hulp', 'scummvm-nep.js'), join(site, 'scummvm.js'));
+		const cd = join(werk, 'cd');
+		mkdirSync(join(cd, 'MOVIES'), { recursive: true });
+		for (const f of ['00.CXT', 'CDDATA.CXT', '03.DXR', '05.DXR', '94.DXR'])
+			writeFileSync(join(cd, 'MOVIES', f), 'x');
+		const iso = join(werk, 'miel.iso');
+		execFileSync('xorriso', ['-as', 'mkisofs', '-quiet', '-J', '-o', iso, cd], { stdio: 'ignore' });
+
+		const server = createServer((req, res) => {
+			const pad = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+			const bestand = join(site, pad === '/' ? 'index.html' : pad);
+			if (!existsSync(bestand)) {
+				res.writeHead(404).end();
+				return;
+			}
+			res.writeHead(200, { 'Content-Type': soorten[extname(bestand)] || 'application/octet-stream' });
+			res.end(readFileSync(bestand));
+		});
+		await new Promise((ok) => server.listen(0, '127.0.0.1', ok));
+		const browser = await playwright.chromium.launch();
+		try {
+			// Een telefoon, liggend
+			const context = await browser.newContext({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+			const pagina = await context.newPage();
+			const fouten = [];
+			pagina.on('pageerror', (e) => fouten.push(e.message));
+			await pagina.goto(`http://127.0.0.1:${server.address().port}/`);
+			await pagina.setInputFiles('#kies-bestand', iso);
+			await pagina.waitForSelector('#wel-spel:not([hidden])', { timeout: 20000 });
+			await pagina.tap('#spelen');
+			await pagina.waitForFunction(() => document.title === 'nep-scummvm gestart', null, { timeout: 20000 });
+			// De knoppen staan er op een aanraakscherm vanzelf
+			for (const groep of ['pijlen', 'acties', 'extra'])
+				assert.ok(await pagina.isVisible(`#bediening .${groep}`), `groep ${groep} zichtbaar`);
+			const gebeurtenissen = async () => {
+				const g = await pagina.evaluate(() => window.nepGebeurtenissen.splice(0));
+				return g;
+			};
+			await gebeurtenissen();
+
+			// Een tik op het spel: muis erheen, knop in, knop uit (lang genoeg), geen aanraking
+			await pagina.touchscreen.tap(400, 200);
+			await pagina.waitForTimeout(400);
+			let g = await gebeurtenissen();
+			const soort = g.map((e) => e.type);
+			assert.ok(!soort.some((t) => t.startsWith('touch')), `geen aanraakgebeurtenissen naar het spel: ${soort}`);
+			const neer = g.find((e) => e.type === 'mousedown'), op = g.find((e) => e.type === 'mouseup');
+			assert.ok(neer && op, `klik: ${soort}`);
+			assert.equal(soort.indexOf('mousemove') < soort.indexOf('mousedown'), true, 'eerst erheen, dan klikken');
+			assert.ok(op.t - neer.t >= 140, `knop lang genoeg in (${Math.round(op.t - neer.t)} ms)`);
+			assert.equal(neer.x, 400);
+			assert.equal(neer.y, 200);
+
+			// Slepen met één vinger: bewegen met de knop in
+			const cdp = await context.newCDPSession(pagina);
+			const raak = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y, id: 1 }] });
+			await raak('touchStart', 300, 150);
+			await pagina.waitForTimeout(120);
+			for (let i = 1; i <= 5; i++)
+				await raak('touchMove', 300 + i * 20, 150 + i * 10);
+			await raak('touchEnd');
+			await pagina.waitForTimeout(300);
+			g = await gebeurtenissen();
+			const bewegen = g.filter((e) => e.type === 'mousemove' && e.buttons === 1);
+			assert.ok(bewegen.length >= 3, `slepen met de knop in (${bewegen.length} bewegingen)`);
+			assert.deepEqual([g.at(-1).type, g.at(-1).x, g.at(-1).y], ['mouseup', 400, 200]);
+
+			// Een pijltje vasthouden: keydown, en pas bij loslaten keyup
+			const pijl = await pagina.locator('#bediening [data-toets="ArrowUp"]').boundingBox();
+			await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: pijl.x + 10, y: pijl.y + 10, id: 2 }] });
+			await pagina.waitForTimeout(200);
+			g = await gebeurtenissen();
+			assert.deepEqual(g.map((e) => [e.type, e.key, e.keyCode]), [['keydown', 'ArrowUp', 38]]);
+			await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+			await pagina.waitForTimeout(100);
+			g = await gebeurtenissen();
+			assert.deepEqual(g.map((e) => [e.type, e.key, e.code]), [['keyup', 'ArrowUp', 'ArrowUp']]);
+
+			// Pauze = Escape
+			await pagina.tap('#bediening [data-toets="Escape"]');
+			await pagina.waitForTimeout(100);
+			g = await gebeurtenissen();
+			assert.deepEqual(g.map((e) => [e.type, e.key, e.keyCode]), [['keydown', 'Escape', 27], ['keyup', 'Escape', 27]]);
+
+			// Typen met het schermtoetsenbord: toetsen zoals een echt toetsenbord
+			await pagina.tap('#bediening .extra .toets');
+			assert.equal(await pagina.evaluate(() => document.activeElement.id), 'typveld');
+			await pagina.keyboard.insertText('Jo');
+			await pagina.waitForTimeout(100);
+			g = await gebeurtenissen();
+			assert.deepEqual(g.map((e) => [e.type, e.key, e.keyCode, e.charCode]), [
+				['keydown', 'J', 74, 0], ['keypress', 'J', 74, 74], ['keyup', 'J', 74, 0],
+				['keydown', 'o', 79, 0], ['keypress', 'o', 111, 111], ['keyup', 'o', 79, 0],
+			]);
+			await pagina.keyboard.press('Backspace');
+			await pagina.keyboard.press('Enter');
+			await pagina.waitForTimeout(100);
+			g = await gebeurtenissen();
+			assert.deepEqual(g.filter((e) => e.type === 'keydown').map((e) => e.key), ['Backspace', 'Enter']);
+
+			// Uitzetten en verplaatsen, en dat onthouden
+			await pagina.tap('#tandwiel');
+			await pagina.locator('#bediening-paneel input[data-groep="acties"]').uncheck();
+			assert.ok(!(await pagina.isVisible('#bediening .acties')), 'Pauze/Enter uitgezet');
+			await pagina.locator('#verplaatsen').check();
+			const voor = await pagina.locator('#bediening .pijlen').boundingBox();
+			await pagina.mouse.move(voor.x + 5, voor.y + 5);
+			await pagina.mouse.down();
+			await pagina.mouse.move(voor.x + 205, voor.y - 95, { steps: 5 });
+			await pagina.mouse.up();
+			await pagina.tap('#verplaats-klaar');
+			assert.ok(await pagina.isVisible('#bediening-paneel'), 'terug in het paneel na verplaatsen');
+			await pagina.tap('#bediening-paneel .knoppen .knop:last-child');
+			assert.ok(await pagina.isHidden('#bediening-paneel'), 'paneel dicht na Klaar');
+			const na = await pagina.locator('#bediening .pijlen').boundingBox();
+			assert.ok(Math.abs(na.x - voor.x - 200) < 3 && Math.abs(na.y - voor.y + 100) < 3, `verplaatst naar ${na.x},${na.y}`);
+			g = await gebeurtenissen();
+			assert.ok(!g.some((e) => e.type === 'keydown'), 'verplaatsen drukt geen toetsen in');
+			await pagina.reload();
+			await pagina.tap('#spelen');
+			await pagina.waitForFunction(() => document.title === 'nep-scummvm gestart', null, { timeout: 20000 });
+			assert.ok(!(await pagina.isVisible('#bediening .acties')), 'uit blijft uit');
+			const bewaard = await pagina.locator('#bediening .pijlen').boundingBox();
+			assert.ok(Math.abs(bewaard.x - na.x) < 3 && Math.abs(bewaard.y - na.y) < 3, 'plaats onthouden');
+			if (process.env.MIEL_SCHERMAFDRUK_MOBIEL)
+				await pagina.screenshot({ path: process.env.MIEL_SCHERMAFDRUK_MOBIEL });
 
 			assert.deepEqual(fouten, []);
 		} finally {

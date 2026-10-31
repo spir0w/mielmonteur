@@ -189,3 +189,188 @@ body.spelen {
 [hidden] {
   display: none !important;
 }
+
+/* Bediening op het scherm (bediening.js) ------------------------------------ */
+
+#speelveld {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+#bediening {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  --maat: calc(3.4rem * var(--groot, 1));
+}
+
+#bediening .groep {
+  position: absolute;
+  width: max-content;
+  pointer-events: auto;
+  display: grid;
+  gap: calc(0.35rem * var(--groot, 1));
+}
+
+#bediening .pijlen {
+  grid-template-columns: repeat(3, var(--maat));
+  grid-template-rows: repeat(3, var(--maat));
+}
+
+#bediening .pijlen .boven { grid-area: 1 / 2; }
+#bediening .pijlen .links { grid-area: 2 / 1; }
+#bediening .pijlen .rechts { grid-area: 2 / 3; }
+#bediening .pijlen .onder { grid-area: 3 / 2; }
+
+#bediening .acties,
+#bediening .extra {
+  grid-auto-flow: column;
+}
+
+#bediening .toets {
+  min-width: var(--maat);
+  height: var(--maat);
+  padding: 0 0.6em;
+  border: 3px solid var(--inkt);
+  border-radius: 14px;
+  background: rgba(242, 212, 155, 0.72);
+  color: var(--inkt);
+  font: 600 calc(1.25rem * var(--groot, 1)) Fredoka, sans-serif;
+  white-space: nowrap;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#bediening .toets.in {
+  background: var(--knop-focus);
+  transform: scale(0.94);
+}
+
+#bediening.verplaatsen .groep {
+  outline: 3px dashed var(--knop-focus);
+  outline-offset: 6px;
+  cursor: move;
+  animation: wiebel 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes wiebel {
+  from { transform: rotate(-1deg); }
+  to { transform: rotate(1deg); }
+}
+
+#tandwiel {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.4rem;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 2px solid var(--inkt);
+  border-radius: 50%;
+  background: rgba(255, 243, 214, 0.55);
+  color: var(--inkt);
+  font-size: 1.4rem;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+#tandwiel:hover {
+  opacity: 1;
+}
+
+#bediening-paneel {
+  position: absolute;
+  top: 3.2rem;
+  left: 0.4rem;
+  max-width: min(22rem, calc(100% - 0.8rem));
+  max-height: calc(100% - 4rem);
+  overflow: auto;
+  padding: 0.4rem 0.9rem;
+  border: 3px solid var(--inkt);
+  border-radius: 14px;
+  background: var(--papier);
+  color: var(--inkt);
+  font-size: 0.95rem;
+}
+
+#bediening-paneel h3 {
+  margin: 0.2rem 0 0.5rem;
+}
+
+#bediening-paneel label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.3rem 0;
+  line-height: 1.25;
+}
+
+#bediening-paneel .knoppen {
+  margin: 0.5rem 0 0.2rem;
+}
+
+#bediening-paneel input[type=checkbox] {
+  width: 1.4rem;
+  height: 1.4rem;
+  accent-color: var(--groen);
+}
+
+#bediening-paneel .uitleg {
+  font-size: 0.85rem;
+}
+
+/* Het onzichtbare tekstvak voor het schermtoetsenbord (16px: geen inzoomen op iOS) */
+#typveld {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  font-size: 16px;
+  border: 0;
+  padding: 0;
+}
+
+#draai-hint {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: 0.6rem;
+  transform: translateX(-50%);
+  padding: 0.4rem 1rem;
+  border: 3px solid var(--inkt);
+  border-radius: 12px;
+  background: var(--papier);
+  color: var(--inkt);
+  white-space: nowrap;
+}
+
+@media (orientation: portrait) and (pointer: coarse) {
+  #draai-hint {
+    display: block;
+  }
+}
+
+#verplaats-klaar {
+  position: absolute;
+  top: 0.4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--knop-focus);
+}
+
+.alleen-aanraak {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .alleen-aanraak {
+    display: block;
+  }
+
+  #sleepvak {
+    display: none;
+  }
+}

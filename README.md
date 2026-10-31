@@ -58,17 +58,37 @@ worden nergens naartoe gestuurd. Opgeslagen spellen blijven ook in de browser.
 
 Zo zet je hem online met GitHub Pages:
 
-1. *Settings → Pages*: zet *Source* op **GitHub Actions**. (Voor een privé
-   repository is daar een betaald GitHub-abonnement voor nodig; maak de
-   repository anders openbaar – er staat geen spel in.)
-2. *Settings → Secrets and variables → Actions → Variables*: maak
-   `MIEL_PAGES` met de waarde `true`.
-3. Bij de volgende push zet de workflow de site op
-   `https://<gebruiker>.github.io/<repository>/`.
+1. Maak de repository openbaar (*Settings → General → Danger Zone → Change
+   repository visibility*); er staat geen spel in. Pages voor een privé
+   repository kan alleen met een betaald GitHub-abonnement.
+2. *Settings → Pages*: zet *Source* op **GitHub Actions**.
+3. Bij de volgende push naar de standaardbranch zet de workflow de site op
+   `https://<gebruiker>.github.io/<repository>/` (of start *Actions → Bouwen →
+   Run workflow*). Staat Pages uit, dan slaat de workflow dit stilletjes over.
 
 Het kan ook op elke andere webserver die gewone bestanden serveert (het
 `.wasm`-bestand moet als `application/wasm` komen). Direct openen vanaf de
 schijf (`file://`) werkt niet; daar is het Windows-pakket voor.
+
+### Op een telefoon of tablet
+
+Dat werkt ook, liggend het best. Kies daar het ISO- of ZIP-bestand (een map
+kiezen kan op telefoons niet). Tikken op het spel is klikken, en slepen sleept
+met de muisknop ingedrukt, dus je kunt onderdelen gewoon naar de auto slepen.
+Over het spel staan knoppen voor wat anders een toetsenbord vraagt:
+
+- **pijltjes** om te rijden,
+- **Pauze** (Esc, het pauzemenu met opslaan en laden) en **Enter**,
+- **⌨** voor het schermtoetsenbord (je naam typen bij het begin) en **⛶**
+  voor volledig scherm.
+
+Met **⚙** linksboven zet je elke groep aan of uit, maak je ze groter of
+kleiner, en sleep je ze naar een andere plek ("Knoppen verplaatsen"). Dat wordt
+onthouden. Op een computer staan de knoppen standaard uit; ook daar zet je ze
+met ⚙ aan.
+
+Het spel en de opgeslagen spellen staan in de opslag van de browser; op een
+telefoon is dat zo'n 150 tot 350 MB.
 
 ## Welke versies
 
@@ -104,7 +124,8 @@ scripts/build-windows.sh    scummvm.exe met MinGW (alleen de Director-engine) + 
 scripts/build-mingw-deps.sh SDL2, zlib, libpng en FreeType voor Windows (met SHA-256-controle)
 scripts/build-web.sh        ScummVM naar WebAssembly met Emscripten + onze pagina
 windows/                    de starter (Miel Monteur.bat → start-miel.ps1) en LEESMIJ.txt
-web/                        de webpagina: importeren.js leest ISO/ZIP/map, miel.js de rest
+web/                        de webpagina: importeren.js leest ISO/ZIP/map, bediening.js de
+                            knoppen en het aanraken op telefoons, miel.js de rest
 data/fonts/                 lettertypes voor het pauzemenu en Director (OFL)
 tests/                      tests (zie hieronder)
 .github/workflows/          bouwen en testen bij elke push; een uitgave bij een tag v*
@@ -130,7 +151,8 @@ scripts/build-web.sh              # → dist/web/ (haalt Emscripten zelf op)
 
 ```sh
 node --test tests/importeren.test.mjs   # ISO (Joliet, ISO 9660, BIN), ZIP, ISO-in-ZIP, map
-node --test tests/webpagina.test.mjs    # de pagina in Chromium (Playwright) met een nagebootste ScummVM
+node --test tests/webpagina.test.mjs    # de pagina in Chromium (Playwright) met een nagebootste ScummVM,
+                                        # ook als telefoon: tikken, slepen, knoppen, typen, verplaatsen
 pwsh tests/start-miel.tests.ps1         # het zoeken van het spel door de starter
 MIEL_WEB_SITE=dist/web node --test tests/webversie.test.mjs   # de gebouwde browserversie, echt
 ```
@@ -142,7 +164,9 @@ In GitHub Actions draait alles bij elke push, en daarnaast:
   `scummvm.exe` moet hem herkennen als *Miel Monteur bouwt auto's* (Nederlands);
 - `tests/webversie.test.mjs` met de gebouwde browserversie in een submap
   (zoals op GitHub Pages): nep-cd inlezen via de pagina, Spelen, en de echte
-  ScummVM in WebAssembly moet hem herkennen en het Director 6-spel starten.
+  ScummVM in WebAssembly moet hem herkennen en het Director 6-spel starten; een
+  tik op het scherm moet als muisklik en de Pauze-knop als toets bij SDL
+  aankomen.
 
 ## Licenties
 

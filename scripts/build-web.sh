@@ -43,7 +43,7 @@ python3 "$SRC/dists/emscripten/build-make_http_index.py" "$OUT/data"
 
 # Onze pagina: index.html laadt scummvm.js zelf, met de spelbestanden die de
 # speler kiest (ze blijven in de browser, niets wordt geüpload).
-cp "$ROOT"/web/index.html "$ROOT"/web/miel.css "$ROOT"/web/miel.js "$ROOT"/web/importeren.js "$OUT/"
+cp "$ROOT"/web/index.html "$ROOT"/web/miel.css "$ROOT"/web/miel.js "$ROOT"/web/importeren.js "$ROOT"/web/bediening.js "$OUT/"
 # ScummVM's eigen testpagina niet: die gebruikt andere instellingen.
 rm -f "$OUT/scummvm.html" "$OUT/manifest.json"
 mkdir -p "$OUT/licenties"
