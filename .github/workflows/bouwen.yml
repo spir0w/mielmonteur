@@ -104,11 +104,39 @@ jobs:
           path: dist/web
           if-no-files-found: error
 
+  web-test:
+    name: Browserversie testen in Chromium
+    needs: web
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: MielMonteur-Web
+          path: site
+      - name: Herkent de echte ScummVM in de browser Miel Monteur?
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xorriso
+          npm install --no-save --prefix "$RUNNER_TEMP/pw" playwright@1.63.0
+          export NODE_PATH="$RUNNER_TEMP/pw/node_modules"
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+          MIEL_WEB_SITE=site MIEL_SCHERMAFDRUK=webversie.png node --test tests/webversie.test.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: webversie-schermafdruk
+          path: webversie.png
+          if-no-files-found: ignore
+
   # Een versie uitbrengen: maak een tag die met v begint (bijvoorbeeld v1.0).
   release:
     name: Uitgave
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [test, windows-test, web]
+    needs: [test, windows-test, web-test]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -132,7 +160,7 @@ jobs:
   pages:
     name: GitHub Pages
     if: vars.MIEL_PAGES == 'true' && github.event_name == 'push'
-    needs: web
+    needs: web-test
     runs-on: ubuntu-24.04
     permissions:
       pages: write
