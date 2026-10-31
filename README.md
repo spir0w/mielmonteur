@@ -31,9 +31,10 @@ download (rond de € 10). Gebruik dus een exemplaar dat van jou is.
 
 ## Spelen op Windows 10/11
 
-1. Download **MielMonteur-Windows.zip**: bij een uitgave onder *Releases*, of
-   bij de laatste geslaagde run onder *Actions → Bouwen → Artifacts*.
-2. Pak de ZIP uit (bijvoorbeeld op het Bureaublad, niet in *Program Files*).
+1. Download **MielMonteur-Windows**: onder *Actions → Bouwen* → de laatste
+   geslaagde run → *Artifacts* (of bij een uitgave onder *Releases*).
+2. Pak de ZIP uit (bijvoorbeeld op het Bureaublad, niet in *Program Files*);
+   er staat een map `MielMonteur` in.
 3. Dubbelklik op **Miel Monteur.bat**. Zegt Windows *"Windows heeft uw pc
    beschermd"*: *Meer informatie* → *Toch uitvoeren*.
 4. De eerste keer zoekt de starter het spel: op de cd-rom, in een
@@ -50,8 +51,8 @@ Meer in [windows/LEESMIJ.txt](windows/LEESMIJ.txt).
 
 ## Spelen in de browser
 
-De browserversie is een statische website (de map `MielMonteur-Web` uit
-*Actions* of de uitgave). Je kiest daarin je ISO, ZIP of map; de bestanden
+De browserversie is een statische website (het artifact `MielMonteur-Web`
+uit *Actions*, of de uitgave). Je kiest daarin je ISO, ZIP of map; de bestanden
 blijven op je eigen computer, in de opslag van de browser (IndexedDB), en
 worden nergens naartoe gestuurd. Opgeslagen spellen blijven ook in de browser.
 
@@ -75,17 +76,23 @@ schijf (`file://`) werkt niet; daar is het Windows-pakket voor.
 |---|---|---|
 | *Mulle Meck bygger bilar* (Zweeds, Windows) | ScummVM's lijst | Helemaal speelbaar (getest door mellemuck) |
 | *Miel Monteur bouwt auto's* (Levande Böcker, 1997) | onze herkenning aan de bestanden | Zelfde spel en indeling als het Zweedse; verwacht speelbaar |
-| *Miel Monteur – De mafste auto's bouw je zelf!* (Transposia, 2001) en de download | ScummVM's lijst (`Start.exe`) of onze herkenning | Herkend; nog niet met de echte bestanden getest |
+| *Miel Monteur – De mafste auto's bouw je zelf!* (Transposia, 2001) en de download | ScummVM's lijst (`Start.exe`) of onze herkenning | Wordt herkend; met de echte bestanden nog niet geprobeerd |
 | Duitse, Noorse en andere versies van het autospel | ScummVM's lijst of onze herkenning | Zoals de Zweedse |
 
 De andere Miel Monteur-spellen (boten, vliegtuigen, huizen, ruimte) zitten in
 mellemuck's verbeteringen voor zover die werken (boten, huizen), maar de
 starter en de webpagina zijn voor het autospel gemaakt.
 
-Dit is gebouwd en getest zonder de echte Nederlandse spelbestanden (de tests
-gebruiken lege bestanden met de juiste namen). Werkt jouw versie niet, kijk
-dan in `%APPDATA%\ScummVM\Logs\scummvm.log` en open een issue met wat erin
-staat en welke versie je hebt (de bestandsnamen op de cd helpen).
+**Wat wel en niet getest is.** De echte Nederlandse spelbestanden waren bij het
+maken niet beschikbaar. Getest is alles tot het moment dat het spel zelf
+begint, met een nep-cd (lege bestanden met de juiste namen): de starter op
+Windows, het inlezen van ISO/ZIP/map in de browser, en dat `scummvm.exe` op
+Windows en ScummVM in de browser de nep-cd herkennen als *Miel Monteur bouwt
+auto's* (Nederlands) en het Director 6-spel starten. Het spelen zelf rust op
+mellemuck's werk aan de Zweedse versie, die hetzelfde spel is. Werkt jouw
+versie niet, kijk dan in `%APPDATA%\ScummVM\Logs\scummvm.log` en open een
+issue met wat erin staat en welke versie je hebt (de bestandsnamen op de cd
+helpen).
 
 ## Hoe het werkt
 
@@ -125,11 +132,17 @@ scripts/build-web.sh              # → dist/web/ (haalt Emscripten zelf op)
 node --test tests/importeren.test.mjs   # ISO (Joliet, ISO 9660, BIN), ZIP, ISO-in-ZIP, map
 node --test tests/webpagina.test.mjs    # de pagina in Chromium (Playwright) met een nagebootste ScummVM
 pwsh tests/start-miel.tests.ps1         # het zoeken van het spel door de starter
+MIEL_WEB_SITE=dist/web node --test tests/webversie.test.mjs   # de gebouwde browserversie, echt
 ```
 
-In GitHub Actions draait daarnaast `tests/windows-pakket.tests.ps1` op een
-Windows-machine met Windows PowerShell 5.1: de starter haalt een nep-spel uit
-een ZIP en `scummvm.exe` moet het als *Miel Monteur bouwt auto's* herkennen.
+In GitHub Actions draait alles bij elke push, en daarnaast:
+
+- `tests/windows-pakket.tests.ps1` op een Windows-machine met Windows
+  PowerShell 5.1: de starter haalt een nep-cd uit een ZIP en de gebouwde
+  `scummvm.exe` moet hem herkennen als *Miel Monteur bouwt auto's* (Nederlands);
+- `tests/webversie.test.mjs` met de gebouwde browserversie in een submap
+  (zoals op GitHub Pages): nep-cd inlezen via de pagina, Spelen, en de echte
+  ScummVM in WebAssembly moet hem herkennen en het Director 6-spel starten.
 
 ## Licenties
 

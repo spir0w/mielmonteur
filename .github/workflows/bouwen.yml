@@ -45,7 +45,7 @@ jobs:
       - name: Gereedschap installeren
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends mingw-w64 pkg-config zip
+          sudo apt-get install -y --no-install-recommends mingw-w64 pkg-config
 
       - name: Bibliotheken uit de cache
         uses: actions/cache@v4
@@ -56,15 +56,13 @@ jobs:
           key: mingw-deps-${{ hashFiles('scripts/build-mingw-deps.sh') }}
 
       - name: Bouwen
-        run: scripts/build-windows.sh dist/MielMonteur
+        run: scripts/build-windows.sh dist/windows/MielMonteur
 
-      - name: Inpakken
-        run: cd dist && zip -q -r -9 MielMonteur-Windows.zip MielMonteur
-
+      # GitHub pakt het artifact zelf in: één ZIP met de map MielMonteur erin.
       - uses: actions/upload-artifact@v4
         with:
           name: MielMonteur-Windows
-          path: dist/MielMonteur-Windows.zip
+          path: dist/windows
           if-no-files-found: error
 
   windows-test:
@@ -76,9 +74,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: MielMonteur-Windows
-      - name: Uitpakken
-        shell: pwsh
-        run: Expand-Archive MielMonteur-Windows.zip -DestinationPath test-pakket
+          path: test-pakket
       - name: Herkent scummvm.exe Miel Monteur? (Windows PowerShell 5.1)
         shell: powershell
         run: .\tests\windows-pakket.tests.ps1 -Pakket test-pakket\MielMonteur
@@ -144,15 +140,17 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: Webversie inpakken
-        run: cd artifacts/MielMonteur-Web && zip -q -r -9 ../MielMonteur-Web.zip .
+      - name: Inpakken
+        run: |
+          (cd artifacts/MielMonteur-Windows && zip -q -r -9 ../../MielMonteur-Windows.zip MielMonteur)
+          (cd artifacts/MielMonteur-Web && zip -q -r -9 ../../MielMonteur-Web.zip .)
       - name: Uitgave maken
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "Miel Monteur $GITHUB_REF_NAME" \
             --notes "Zie de README voor uitleg. Het spel zelf zit er niet bij: gebruik je eigen cd-rom, ISO of download." \
-            artifacts/MielMonteur-Windows/MielMonteur-Windows.zip artifacts/MielMonteur-Web.zip
+            MielMonteur-Windows.zip MielMonteur-Web.zip
 
   # De browserversie op GitHub Pages zetten. Zet hiervoor in de repository
   # (Settings > Pages) de bron op "GitHub Actions" en maak onder Settings >
